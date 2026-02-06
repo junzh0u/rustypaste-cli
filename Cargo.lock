@@ -671,6 +671,7 @@ dependencies = [
  "getopts",
  "indicatif",
  "multipart",
+ "percent-encoding",
  "serde",
  "shellexpand",
  "thiserror 2.0.18",

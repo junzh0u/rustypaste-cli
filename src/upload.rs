@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::error::{Error, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use multipart::client::lazy::Multipart;
+use percent_encoding::{utf8_percent_encode, CONTROLS};
 use serde::Deserialize;
 use std::io::{Read, Result as IoResult, Write};
 use std::time::Duration;
@@ -171,7 +172,8 @@ impl<'a> Uploader<'a> {
             request = request.set(EXPIRATION_HEADER, expiration_time);
         }
         if let Some(filename) = &self.config.paste.filename {
-            request = request.set(FILENAME_HEADER, filename);
+            let encoded = utf8_percent_encode(filename, CONTROLS).to_string();
+            request = request.set(FILENAME_HEADER, &encoded);
         }
         let progress_bar = ProgressBar::new_spinner();
         progress_bar.enable_steady_tick(Duration::from_millis(80));
@@ -331,5 +333,30 @@ impl<'a> Uploader<'a> {
             )
         })?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unicode_filename_percent_encoding() {
+        // ASCII filenames should pass through unchanged
+        let ascii = "hello.txt";
+        let encoded = utf8_percent_encode(ascii, CONTROLS).to_string();
+        assert_eq!(encoded, "hello.txt");
+
+        // Unicode filenames should be percent-encoded
+        let unicode = "测试文件.txt";
+        let encoded = utf8_percent_encode(unicode, CONTROLS).to_string();
+        assert_eq!(encoded, "%E6%B5%8B%E8%AF%95%E6%96%87%E4%BB%B6.txt");
+        assert!(encoded.is_ascii());
+
+        // Emoji filenames
+        let emoji = "📎attachment.zip";
+        let encoded = utf8_percent_encode(emoji, CONTROLS).to_string();
+        assert!(encoded.is_ascii());
+        assert!(encoded.ends_with("attachment.zip"));
     }
 }
